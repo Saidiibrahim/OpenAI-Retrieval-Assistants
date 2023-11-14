@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "openai-retrieval-assistants"
+version = "0.1.0"
+description = "A Hello World of getting started with Retrieval in the Assistants API"
+authors = ["ibrahimsaidi <ibrahim.aka.ajax@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+openai = "^1.2.4"
+python-dotenv = "^1.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
