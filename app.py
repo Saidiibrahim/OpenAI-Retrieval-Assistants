@@ -63,6 +63,9 @@ if st.session_state.file_id_list:
             file_id=file_id
         )
 
+#TODO: User should be able to start conversation without uploading files
+#TODO: User should be able to upload files after starting conversation
+#TODO: If no file is uploaded, use the default files associated with the assistant
 # Button to start the chat session
 if st.sidebar.button("Start Chat"):
     # Check if files are uploaded before starting chat
