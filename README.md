@@ -1,3 +1,7 @@
+# Welcome
+Suggestions to improve this repo are welcomed 😊.
+
+
 ## Notes to self
 
 ### Poetry Workflow
