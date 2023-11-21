@@ -1,5 +1,5 @@
 # Import necessary libraries
-import openai
+from openai import OpenAI
 import streamlit as st
 from dotenv import load_dotenv
 import os
@@ -8,75 +8,20 @@ import time
 # env variables
 load_dotenv()
 my_key = os.getenv('OPENAI_API_KEY')
-
 # Set your OpenAI Assistant ID here
-assistant_id = 'asst_1PItSvThr8KfuOSZQzuCbRal'
-
+assistant_id = 'asst_j3G9vFWYx74JKDJEnPHqwiaN'
 # Initialize the OpenAI client (ensure to set your API key in the sidebar within the app)
-client = openai
-
-# Initialize session state variables for file IDs and chat control
-if "file_id_list" not in st.session_state:
-    st.session_state.file_id_list = []
-
-if "start_chat" not in st.session_state:
-    st.session_state.start_chat = False
-
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = None
-
-# Set up the Streamlit page with a title and icon
-st.set_page_config(page_title="Lab Assistant", page_icon="🔬")
+client = OpenAI(api_key=my_key)
+# openai.api_key = my_key
 
 
+########################Functions########################
 def upload_to_openai(filepath):
     """Upload a file to OpenAI and return its file ID."""
     with open(filepath, "rb") as file:
-        response = openai.files.create(file=file.read(), purpose="assistants")
+        response = client.files.create(file=file.read(), purpose="assistants")
     return response.id
 
-# Create a sidebar for API key configuration and additional features
-st.sidebar.header("Configuration")
-openai.api_key = my_key
-
-# Sidebar option for users to upload their own files
-uploaded_file = st.sidebar.file_uploader("Upload a file to OpenAI", key="file_uploader")
-
-# Button to upload a user's file and store the file ID
-if st.sidebar.button("Upload File"):
-    # Upload file provided by user
-    if uploaded_file:
-        with open(f"{uploaded_file.name}", "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        additional_file_id = upload_to_openai(f"{uploaded_file.name}")
-        st.session_state.file_id_list.append(additional_file_id)
-        st.sidebar.write(f"Additional File ID: {additional_file_id}")
-
-# Display all file IDs
-if st.session_state.file_id_list:
-    st.sidebar.write("Uploaded File IDs:")
-    for file_id in st.session_state.file_id_list:
-        st.sidebar.write(file_id)
-        # Associate files with the assistant
-        assistant_file = client.beta.assistants.files.create(
-            assistant_id=assistant_id, 
-            file_id=file_id
-        )
-
-#TODO: User should be able to start conversation without uploading files
-#TODO: User should be able to upload files after starting conversation
-#TODO: If no file is uploaded, use the default files associated with the assistant
-# Button to start the chat session
-if st.sidebar.button("Start Chat"):
-    # Check if files are uploaded before starting chat
-    if st.session_state.file_id_list:
-        st.session_state.start_chat = True
-        # Create a thread once and store its ID in session state
-        thread = client.beta.threads.create()
-        st.session_state.thread_id = thread.id
-        st.write("thread id: ", thread.id)
-    else:
-        st.sidebar.warning("Please upload at least one file to start the chat.")
 
 # Define the function to process messages with citations
 def process_message_with_citations(message):
@@ -105,68 +50,130 @@ def process_message_with_citations(message):
     return full_response
 
 
+#######################Streamlit########################
 
-# Main chat interface setup
-st.title("Lab Assistant Chat")
-st.write("Here to assist you with your lab work.")
+# Main app
+def main():
+        # Set up the Streamlit page with a title and icon
+    st.set_page_config(page_title="Lab Assistant", page_icon="🔬")
+    # Create a sidebar for API key configuration and additional features
+    st.sidebar.header("Configuration")
+    # Sidebar option for users to upload their own files
+    uploaded_file = st.sidebar.file_uploader("Upload a file to OpenAI", key="file_uploader")
+    # Main chat interface setup
+    st.title("Lab Assistant Chat")
+    st.write("Here to assist you with your lab work.")
 
-# Only show the chat interface if the chat has been started
-if st.session_state.start_chat:
-    # Initialize the model and messages list if not already in session state
-    if "openai_model" not in st.session_state:
-        st.session_state.openai_model = "gpt-4-1106-preview"
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Initialize session state variables for file IDs and chat control
+    if "file_id_list" not in st.session_state:
+        st.session_state.file_id_list = []
 
-    # Display existing messages in the chat
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if "ignore_file_ids" not in st.session_state:
+        st.session_state.ignore_file_ids = True
 
-    # Chat input for the user
-    if prompt := st.chat_input("What is up?"):
-        # Add user message to the state and display it
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    if "start_chat" not in st.session_state:
+        st.session_state.start_chat = False
 
-        # Add the user's message to the existing thread
-        client.beta.threads.messages.create(
-            thread_id=st.session_state.thread_id,
-            role="user",
-            content=prompt
-        )
+    if "thread_id" not in st.session_state:
+        st.session_state.thread_id = None
 
-        # Create a run with additional instructions
-        run = client.beta.threads.runs.create(
-            thread_id=st.session_state.thread_id,
-            assistant_id=assistant_id,
-            instructions="Please answer the queries using the knowledge provided in the files.When adding other information mark it clearly as such.with a different color"
-        )
+    # Button to upload a user's file and store the file ID
+    if st.sidebar.button("Upload File"):
+        # Upload file provided by user
+        if uploaded_file:
+            with open(f"{uploaded_file.name}", "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            additional_file_id = upload_to_openai(f"{uploaded_file.name}")
+            st.session_state.file_id_list.append(additional_file_id)
+            st.sidebar.write(f"Additional File ID: {additional_file_id}")
 
-        # Poll for the run to complete and retrieve the assistant's messages
-        while run.status != 'completed':
-            time.sleep(1)
-            run = client.beta.threads.runs.retrieve(
-                thread_id=st.session_state.thread_id,
-                run_id=run.id
+    # Display all file IDs
+    if st.session_state.file_id_list:
+        st.sidebar.write("Uploaded File IDs:")
+        for file_id in st.session_state.file_id_list:
+            st.sidebar.write(file_id)
+            # Associate files with the assistant
+            assistant_file = client.beta.assistants.files.create(
+                assistant_id=assistant_id, 
+                file_id=file_id
             )
 
-        # Retrieve messages added by the assistant
-        messages = client.beta.threads.messages.list(
-            thread_id=st.session_state.thread_id
-        )
+    
+    # Button to start the chat session
+    if st.sidebar.button("Start Chat"):
+        # Ensure there's a file to work with. Either at Assistant level or user uploaded
+        if st.session_state.ignore_file_ids:
+            st.session_state.start_chat = True
+            # Create a thread once and store its ID in session state
+            thread = client.beta.threads.create()
+            st.session_state.thread_id = thread.id
+            st.write("thread id: ", thread.id)
+        else:
+            st.sidebar.warning("Warning message to go here")
 
-        # Process and display assistant messages
-        assistant_messages_for_run = [
-            message for message in messages 
-            if message.run_id == run.id and message.role == "assistant"
-        ]
-        for message in assistant_messages_for_run:
-            full_response = process_message_with_citations(message)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-            with st.chat_message("assistant"):
-                st.markdown(full_response, unsafe_allow_html=True)
-else:
-    # Prompt to start the chat
-    st.write("Please upload files and click 'Start Chat' to begin the conversation.")
+
+    # Only show the chat interface if the chat has been started
+    if st.session_state.file_id_list or st.session_state.start_chat:
+        # Initialize the model and messages list if not already in session state
+        if "openai_model" not in st.session_state:
+            st.session_state.openai_model = "gpt-4-1106-preview"
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        # Display existing messages in the chat
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Chat input for the user
+        if prompt := st.chat_input("What is up?"):
+            # Add user message to the state and display it
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Add the user's message to the existing thread
+            client.beta.threads.messages.create(
+                thread_id=st.session_state.thread_id,
+                role="user",
+                content=prompt
+            )
+
+            # Create a run with additional instructions
+            run = client.beta.threads.runs.create(
+                thread_id=st.session_state.thread_id,
+                assistant_id=assistant_id,
+                instructions="You are a helpful assistant. Please only use the provided documents to answer questions. If you can't find the appropriate information in the given documents, say you don't know, and ask the user to do search on the web."
+            )
+
+            # Poll for the run to complete and retrieve the assistant's messages
+            while run.status != 'completed':
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(
+                    thread_id=st.session_state.thread_id,
+                    run_id=run.id
+                )
+
+            # Retrieve messages added by the assistant
+            messages = client.beta.threads.messages.list(
+                thread_id=st.session_state.thread_id
+            )
+
+            # Process and display assistant messages
+            assistant_messages_for_run = [
+                message for message in messages 
+                if message.run_id == run.id and message.role == "assistant"
+            ]
+            for message in assistant_messages_for_run:
+                full_response = process_message_with_citations(message)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                with st.chat_message("assistant"):
+                    st.markdown(full_response, unsafe_allow_html=True)
+    else:
+        # Prompt to start the chat
+        st.write("Please upload files and click 'Start Chat' to begin the conversation.")
+
+
+
+if __name__ == "__main__":
+    main()
