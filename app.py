@@ -5,14 +5,12 @@ from dotenv import load_dotenv
 import os
 import time
 
-# env variables
+# Please make sure you have a .env file in the same directory as this file
 load_dotenv()
 my_key = os.getenv('OPENAI_API_KEY')
 # Set your OpenAI Assistant ID here
-assistant_id = 'asst_j3G9vFWYx74JKDJEnPHqwiaN'
-# Initialize the OpenAI client (ensure to set your API key in the sidebar within the app)
+assistant_id = ''
 client = OpenAI(api_key=my_key)
-# openai.api_key = my_key
 
 
 ########################Functions########################
@@ -93,7 +91,7 @@ def main():
         for file_id in st.session_state.file_id_list:
             st.sidebar.write(file_id)
             # Associate files with the assistant
-            assistant_file = client.beta.assistants.files.create(
+            client.beta.assistants.files.create(
                 assistant_id=assistant_id, 
                 file_id=file_id
             )
